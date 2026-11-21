@@ -1,0 +1,62 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 24,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "macos-debug",
+      "displayName": "macOS Debug",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build/debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_OSX_DEPLOYMENT_TARGET": "26.0",
+        "CMAKE_PREFIX_PATH": "/opt/homebrew/opt/qtbase;/opt/homebrew/opt/qtdeclarative;/opt/homebrew/opt/qtshadertools;/opt/homebrew/opt/qtconnectivity;/opt/homebrew/opt/qt",
+        "QT_ADDITIONAL_PACKAGES_PREFIX_PATH": "/opt/homebrew;/opt/homebrew/opt/qtdeclarative;/opt/homebrew/opt/qtshadertools;/opt/homebrew/opt/qtconnectivity"
+      }
+    },
+    {
+      "name": "macos-release",
+      "displayName": "macOS Release",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build/release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_OSX_DEPLOYMENT_TARGET": "26.0",
+        "CMAKE_PREFIX_PATH": "/opt/homebrew/opt/qtbase;/opt/homebrew/opt/qtdeclarative;/opt/homebrew/opt/qtshadertools;/opt/homebrew/opt/qtconnectivity;/opt/homebrew/opt/qt",
+        "QT_ADDITIONAL_PACKAGES_PREFIX_PATH": "/opt/homebrew;/opt/homebrew/opt/qtdeclarative;/opt/homebrew/opt/qtshadertools;/opt/homebrew/opt/qtconnectivity"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "macos-debug",
+      "configurePreset": "macos-debug",
+      "jobs": 8
+    },
+    {
+      "name": "macos-release",
+      "configurePreset": "macos-release",
+      "jobs": 8
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "macos-debug",
+      "configurePreset": "macos-debug",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "macos-release",
+      "configurePreset": "macos-release",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
+}
