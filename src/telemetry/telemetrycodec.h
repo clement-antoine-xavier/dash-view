@@ -5,7 +5,7 @@
 
 #include "telemetry/telemetryvalue.h"
 
-// Wire codec for the tagged union sent by the Arduino over BLE.
+// Wire codec for the tagged union sent by dash-connector over BLE.
 //
 // Record layout (6 bytes, little-endian payload):
 //   byte 0: tag

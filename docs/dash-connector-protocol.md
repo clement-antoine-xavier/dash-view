@@ -1,16 +1,15 @@
-# Tagged telemetry protocol
+# dash-connector telemetry protocol
 
-Dash View is vehicle-agnostic: it never decodes raw CAN. The Arduino firmware
-(the separate project) owns the vehicle-specific CAN map, converts signals to
-physical values, and sends them as a **tagged union**.
+Dash View consumes the tagged telemetry stream from **dash-connector**. The
+connector owns all vehicle-specific CAN decoding and sends the same tag/value
+structure for every car, so Dash View has no per-vehicle code or configuration.
 
 ```
-vehicle CAN ──> Arduino (vehicle profile) ──> tagged BLE values ──> Dash View
+dash-connector ──tagged BLE values──> Dash View
 ```
 
-This document is the contract between the firmware and the app. The app already
-implements the central/decoder side; the firmware side is not part of this
-repository.
+This document is the contract between dash-connector and the app. Dash View
+implements the consumer/display side; dash-connector is a separate project.
 
 ## GATT
 
@@ -30,7 +29,7 @@ repository.
 
 A telemetry notification is a concatenation of **1 to 3 complete records**
 (6/12/18 bytes). It is never padded: the receiver splits the notification into
-6-byte records. `ArduinoBLE`'s usable notification payload is 20 bytes, so 3
+6-byte records. The BLE link's usable notification payload is 20 bytes, so 3
 records is the maximum.
 
 Each record is 6 bytes:
@@ -133,7 +132,7 @@ Reserved ranges:
 The app reads the optional info characteristic after connecting. It may contain:
 
 ```json
-{"vehicle":"2019 BMW Z4","protocol":1}
+{"vehicle":"Example car","protocol":1}
 ```
 
 The `vehicle` string is shown in the header and the link panel. If the
@@ -142,7 +141,7 @@ characteristic is absent or unreadable, the BLE device name is used.
 ## Rate budget
 
 At a 15–30 ms BLE connection interval with 3 records per notification, the link
-can carry roughly 100–200 values/s. Suggested firmware rates:
+can carry roughly 100–200 values/s. Suggested connector rates:
 
 | Group | Rate |
 |---|---|
@@ -151,21 +150,21 @@ can carry roughly 100–200 values/s. Suggested firmware rates:
 | Temperatures, battery, fuel, lights, maxRpm | 1–5 Hz |
 
 Send `maxRpm` and `gear` early so the dashboard has its scale and gear display.
-Rate-limit per tag on the firmware; do not queue without bound. If the app reports
-dropped values, lower the rates before adding compression.
+Rate-limit per tag on the connector; do not queue without bound. If the app
+reports dropped values, lower the rates before adding compression.
 
-## Firmware checklist
+## dash-connector checklist
 
 1. Decode the vehicle's CAN map into physical values.
 2. Normalize gear to -1/0/1..N and booleans to 0/1.
 3. Encode each value as a 6-byte record (tag, type, little-endian value).
 4. Batch 1–3 records per notification; never pad inside a notification.
 5. Advertise the service and name; set the optional info characteristic.
-6. Keep the CAN side independent of BLE connection state.
+6. Keep the CAN side independent of the BLE connection state.
 7. Never transmit application frames on the vehicle bus (listen-only).
 
-See [`vehicles/bmw-g29.md`](vehicles/bmw-g29.md) for the G29/J29 example map and
-wiring notes.
+All vehicle-specific maps live in dash-connector. Adding a car is a connector
+change; Dash View requires no changes.
 
 ## App behavior
 
@@ -175,6 +174,5 @@ wiring notes.
 - Malformed records (tag 0, type > 3, truncated) are dropped.
 - Values are coalesced to ~30 Hz for the UI and disappear after their per-tag
   timeout, so a lost link shows `—` and a red status pill.
-- The **D** overlay shows every catalog tag, raw stream values, age and count.
-- The BLE implementation is experimental; the firmware side is not in this
-  repository.
+- The **D** overlay shows every catalog tag, recent values, age and count.
+- The BLE implementation is experimental; dash-connector is a separate project.

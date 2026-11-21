@@ -4,8 +4,8 @@
 #include <QVector>
 #include <QtGlobal>
 
-// Vehicle-agnostic telemetry tags. The Arduino firmware decodes the vehicle's
-// CAN bus and sends values using these tags; Dash View never sees raw CAN.
+// Vehicle-agnostic telemetry tags. dash-connector decodes the vehicle's CAN
+// bus and sends values using these tags; Dash View never sees raw CAN.
 namespace sig {
 
 using Tag = quint8;

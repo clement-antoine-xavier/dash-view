@@ -7,7 +7,7 @@
 #include "telemetry/telemetrysource.h"
 
 // Synthetic drive cycle. Emits generic telemetry tags, so it exercises the
-// same path as the Arduino's tagged BLE stream.
+// same path as dash-connector's tagged BLE stream.
 class MockTelemetrySource final : public TelemetrySource
 {
     Q_OBJECT

@@ -25,7 +25,7 @@ Written at recording start and whenever the vehicle name changes:
 | Field | Meaning |
 |---|---|
 | `t` | milliseconds since recording start |
-| `tag` | numeric telemetry tag (see [`telemetry-protocol.md`](telemetry-protocol.md)) |
+| `tag` | numeric telemetry tag (see [`dash-connector-protocol.md`](dash-connector-protocol.md)) |
 | `v` | physical value |
 | `name` | optional tag key, for human readability |
 
@@ -39,7 +39,7 @@ keep the same `t`; gaps in the recording are preserved on replay.
 ./build/debug/dash_view.app/Contents/MacOS/dash_view \
   --source mock --record recordings/demo.jsonl
 
-# Record the live Arduino stream
+# Record the live dash-connector stream
 ./build/debug/dash_view.app/Contents/MacOS/dash_view \
   --source ble --record recordings/car.jsonl
 
@@ -78,4 +78,4 @@ widget later if the channel deserves one.
 - Invalid value lines are skipped; they do not abort the replay.
 - A missing meta line falls back to the file name as the vehicle name.
 - The format is deliberately transport-agnostic: the same file can be replayed
-  on any machine without the car or the Arduino.
+  on any machine without the car or the connector.

@@ -3,8 +3,8 @@
 #include <QMetaType>
 #include <QtGlobal>
 
-// One decoded vehicle value. The tag identifies the physical quantity; the
-// Arduino is responsible for turning raw CAN into these values.
+// One decoded vehicle value. The tag identifies the physical quantity;
+// dash-connector is responsible for turning raw CAN into these values.
 struct TelemetryValue
 {
     quint8 tag = 0;

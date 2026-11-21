@@ -9,8 +9,8 @@
 
 #include "telemetry/telemetrysource.h"
 
-// BLE central for the Arduino tagged-union stream. Experimental: the firmware
-// side is a separate project and is not included in this repository.
+// BLE central for the dash-connector tagged stream. Experimental: dash-connector
+// is a separate project and is not included in this repository.
 class BleTelemetrySource final : public TelemetrySource
 {
     Q_OBJECT

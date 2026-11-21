@@ -1,15 +1,15 @@
 # Dash View
 
-A vehicle-agnostic Qt 6 / QML dashboard for tagged telemetry from an Arduino.
+A Qt 6 / QML dashboard that consumes and records the tagged telemetry stream
+from **dash-connector**.
 
-The car-specific work lives in the **Arduino firmware**: it decodes the vehicle's
-CAN bus and sends physical values as a tagged union over BLE. Dash View displays,
-records and replays those values. There is no raw CAN decoding in this app, so
-adding a vehicle does not require touching the dashboard.
+Dash View has no vehicle-specific code or configuration. dash-connector owns the
+car-specific CAN decoding and sends the **same tagged structure/protocol for every
+car**; the dashboard simply displays whichever standard tags are present.
 
 ```
-vehicle CAN ──> Arduino (per-vehicle profile) ──> tagged BLE ──> Dash View
-                                                          └───> JSONL recording
+dash-connector ──tagged BLE values──> Dash View ──> display
+                                              └──> JSONL recording
 ```
 
 ![Dash View dashboard](docs/dashboard.png)
@@ -17,21 +17,21 @@ vehicle CAN ──> Arduino (per-vehicle profile) ──> tagged BLE ──> Das
 ## Features
 
 - **44 standard telemetry tags** (`rpm`, `speed`, `gear`, temperatures, fuel,
-  wheel speeds, acceleration, telltales, EV channels, …) plus vehicle-specific
-  custom tags in `0x80..0xEF`.
-- **Mock source** generating a synthetic drive cycle, for UI work without a car.
+  wheel speeds, acceleration, telltales, EV channels, …) plus custom tags in
+  `0x80..0xEF`.
+- **Mock source** with a synthetic drive cycle for UI work without a car.
 - **Replay source** for JSON Lines recordings, with loop and speed control.
-- **BLE central** for the Arduino's tagged stream (experimental; protocol
-  documented, firmware is a separate project).
+- **BLE central** for dash-connector's tagged stream (experimental; the connector
+  is a separate project).
 - **Recording** of the tagged stream from any source.
 - **Dashboard** with tach/shift lights, speed, gear, temperatures, fuel, pedals,
   torque, wheel speeds, steering, G-force, telltales and link statistics.
-- **Debug overlay** (**D**) with the full tag catalog, ages, counts and the most
-  recent values. Custom tags show up here.
-- Unit tests for the codec, recorder/replay and vehicle state.
+- **Debug overlay** (**D**) with the full tag catalog, ages, counts and recent
+  values.
+- Unit tests for the codec, recorder/replay, vehicle state and mock source.
 
-Not in this repository: the Arduino firmware, vehicle CAN maps (the G29 example
-is documented for the firmware project), and raw CAN/SocketCAN transport.
+Not in this repository: dash-connector and the vehicle CAN maps. Those live in
+the dash-connector project.
 
 ## Requirements
 
@@ -92,7 +92,7 @@ Or pass options from the terminal:
 ./build/debug/dash_view.app/Contents/MacOS/dash_view \
   --source replay --replay build/demo.jsonl --speed 2 --loop
 
-# Live Arduino stream
+# Live dash-connector stream
 ./build/debug/dash_view.app/Contents/MacOS/dash_view \
   --source ble --ble-name DashView --record build/car.jsonl
 
@@ -112,25 +112,17 @@ Or pass options from the terminal:
 
 The left table lists every standard tag (plus any observed custom tag) with its
 value, age and count. The right table is a live view of the most recent values in
-arrival order. This is the fastest way to validate the Arduino's tag stream.
+arrival order. This is the fastest way to validate dash-connector's tag stream.
 
-## How to collect from any vehicle
+## The dash-connector contract
 
-1. In the **Arduino firmware** (separate project), decode the vehicle's CAN map
-   into physical values.
-2. Map each value to a standard tag from
-   [`docs/telemetry-protocol.md`](docs/telemetry-protocol.md); extras go in
-   custom tags `0x80..0xEF`.
-3. Send 6-byte records over the BLE service, 1–3 per notification.
-4. Run Dash View with `--source ble --record <file>`.
-5. Replay the recording later without the car.
-
-Standard tags need no app change. Custom tags are recorded and visible in the
-debug overlay; adding one to the main dashboard is an app change.
-
-The G29/J29 example — raw PT-CAN map, wiring and quirks — is in
-[`docs/vehicles/bmw-g29.md`](docs/vehicles/bmw-g29.md), as a reference for the
-firmware side.
+- dash-connector sends a fixed tagged structure; see
+  [`docs/dash-connector-protocol.md`](docs/dash-connector-protocol.md).
+- Every car uses the same standard tags. Signals a car does not provide are
+  simply absent and render as `—`.
+- Extra vehicle-specific channels go in custom tags `0x80..0xEF`; they are
+  recorded and shown in the debug overlay.
+- Adding a car is a **dash-connector** change, not a Dash View change.
 
 ## Project layout
 
@@ -138,9 +130,8 @@ firmware side.
 CMakeLists.txt / CMakePresets.json
 cmake/Info.plist.in              # macOS bundle + Bluetooth usage strings
 docs/
-  telemetry-protocol.md          # BLE GATT + 6-byte tagged records + tag catalog
+  dash-connector-protocol.md     # BLE GATT + 6-byte tagged records + tag catalog
   replay-format.md               # JSONL recording format
-  vehicles/bmw-g29.md            # example firmware-side CAN map and wiring
 src/
   main.cpp                       # CLI, source wiring, recording, screenshots
   telemetry/
@@ -173,19 +164,10 @@ Mock / Replay / BLE ──TelemetryValue{tag,value}──> VehicleState ──va
 ```
 
 `VehicleState` coalesces updates to ~30 Hz for QML and drops each value after its
-per-tag timeout. Missing values render as `—`. The dashboard layout is generic;
-signals the vehicle does not provide simply stay empty.
+per-tag timeout. Missing values render as `—`.
 
 ## Documentation
 
-- [`docs/telemetry-protocol.md`](docs/telemetry-protocol.md) — BLE service,
-  record format, tag catalog, rates and firmware checklist.
+- [`docs/dash-connector-protocol.md`](docs/dash-connector-protocol.md) — BLE
+  service, 6-byte record format, tag catalog, rates and the connector checklist.
 - [`docs/replay-format.md`](docs/replay-format.md) — recording/replay JSONL.
-- [`docs/vehicles/bmw-g29.md`](docs/vehicles/bmw-g29.md) — G29 example map,
-  wiring, termination and known quirks.
-
-## Credits
-
-The G29/J29 PT-CAN map and install notes come from
-[The SECRET Ingredient!](https://thesecretingredient.neocities.org/bmw/can/g29/).
-This project is not affiliated with BMW.

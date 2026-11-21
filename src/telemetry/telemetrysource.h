@@ -7,7 +7,7 @@
 
 // Abstract stream of tagged vehicle values. Implementations: mock, replay and
 // BLE. The source is vehicle-agnostic; the vehicle-specific decoding lives in
-// the Arduino firmware.
+// dash-connector.
 class TelemetrySource : public QObject
 {
     Q_OBJECT
