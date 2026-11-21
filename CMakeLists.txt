@@ -1,29 +1,33 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(DashView VERSION 0.1.0 LANGUAGES CXX)
+project(DashView VERSION 0.2.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Quick Test)
+find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Quick Bluetooth Test)
 
 qt_standard_project_setup(REQUIRES 6.5)
 
 # -----------------------------------------------------------------------------
-# Core: CAN model, G29 decoder, replay/demo sources and the vehicle state.
-# Kept GUI-free so the decoder can be unit tested headlessly.
+# Core: tagged telemetry model, mock/replay sources, recorder and vehicle state.
+# Kept GUI- and Bluetooth-free so it can be tested headlessly.
 # -----------------------------------------------------------------------------
 add_library(dashview_core STATIC
-    src/can/canframe.h
-    src/can/cansource.h
-    src/can/cansource.cpp
-    src/can/democansource.h
-    src/can/democansource.cpp
-    src/decode/signaldef.h
-    src/decode/decoder.h
-    src/decode/decoder.cpp
-    src/decode/bmwptcan.cpp
+    src/telemetry/signaltag.h
+    src/telemetry/signaltag.cpp
+    src/telemetry/telemetryvalue.h
+    src/telemetry/telemetrysource.h
+    src/telemetry/telemetrysource.cpp
+    src/telemetry/telemetrycodec.h
+    src/telemetry/telemetrycodec.cpp
+    src/telemetry/mocktelemetrysource.h
+    src/telemetry/mocktelemetrysource.cpp
+    src/telemetry/replaytelemetrysource.h
+    src/telemetry/replaytelemetrysource.cpp
+    src/telemetry/telemetryrecorder.h
+    src/telemetry/telemetryrecorder.cpp
     src/vehicle/vehiclestate.h
     src/vehicle/vehiclestate.cpp
 )
@@ -40,6 +44,8 @@ endif()
 # -----------------------------------------------------------------------------
 qt_add_executable(dash_view
     src/main.cpp
+    src/telemetry/bletelemetrysource.h
+    src/telemetry/bletelemetrysource.cpp
 )
 
 set_source_files_properties(qml/Theme.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
@@ -72,7 +78,7 @@ qt_add_qml_module(dash_view
         qml/WheelSpeeds.qml
 )
 
-target_link_libraries(dash_view PRIVATE dashview_core Qt6::Quick Qt6::Gui)
+target_link_libraries(dash_view PRIVATE dashview_core Qt6::Quick Qt6::Gui Qt6::Bluetooth)
 
 set_target_properties(dash_view PROPERTIES
     MACOSX_BUNDLE TRUE
@@ -86,7 +92,7 @@ set_target_properties(dash_view PROPERTIES
 
 include(CTest)
 if(BUILD_TESTING)
-    add_executable(tst_decoder tests/tst_decoder.cpp)
-    target_link_libraries(tst_decoder PRIVATE dashview_core Qt6::Test)
-    add_test(NAME decoder COMMAND tst_decoder)
+    add_executable(tst_telemetry tests/tst_telemetry.cpp)
+    target_link_libraries(tst_telemetry PRIVATE dashview_core Qt6::Test)
+    add_test(NAME telemetry COMMAND tst_telemetry)
 endif()

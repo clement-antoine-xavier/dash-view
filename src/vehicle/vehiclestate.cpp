@@ -1,20 +1,12 @@
 #include "vehicle/vehiclestate.h"
 
-#include <QStringList>
 #include <QtGlobal>
 
+#include <algorithm>
 #include <cmath>
 #include <limits>
 
-#include "decode/decoder.h"
-
 namespace {
-
-QString hexId(quint32 id)
-{
-    return QStringLiteral("0x")
-        + QString::number(id, 16).toUpper().rightJustified(3, QLatin1Char('0'));
-}
 
 QString gearLabel(int gear)
 {
@@ -22,7 +14,7 @@ QString gearLabel(int gear)
         return gear == -1 ? QStringLiteral("R") : QStringLiteral("P");
     if (gear == 0)
         return QStringLiteral("N");
-    return QString::number(qMin(gear, 8));
+    return QString::number(gear);
 }
 
 } // namespace
@@ -41,12 +33,29 @@ VehicleState::VehicleState(QObject *parent)
     m_statsTimer.start();
 }
 
+void VehicleState::setVehicleName(const QString &name)
+{
+    const QString cleaned = name.trimmed();
+    if (cleaned.isEmpty() || m_vehicleName == cleaned)
+        return;
+    m_vehicleName = cleaned;
+    emit vehicleNameChanged();
+}
+
 void VehicleState::setSourceName(const QString &name)
 {
     if (m_sourceName == name)
         return;
     m_sourceName = name;
     emit sourceNameChanged();
+}
+
+void VehicleState::setSourceLabel(const QString &label)
+{
+    if (m_sourceLabel == label)
+        return;
+    m_sourceLabel = label;
+    emit sourceLabelChanged();
 }
 
 void VehicleState::setSourceState(const QString &state)
@@ -57,33 +66,23 @@ void VehicleState::setSourceState(const QString &state)
     emit sourceStateChanged();
 }
 
-void VehicleState::ingestFrame(const CanFrame &frame)
+void VehicleState::ingest(const TelemetryValue &value)
 {
-    if (frame.id > 0x7FF)
+    if (value.tag == 0 || !std::isfinite(value.value))
         return;
 
     const qint64 now = nowMs();
-    ++m_framesSinceTick;
-    m_lastFrameMs = now;
+    ++m_valuesSinceTick;
+    m_lastValueMs = now;
 
-    const auto &defs = canmap::signalsForId(frame.id);
-    for (const SignalDef *def : defs) {
-        qint64 raw = 0;
-        if (!decoder::decodeRaw(*def, frame, &raw))
-            continue;
+    Entry &entry = m_entries[value.tag];
+    entry.value = value.value;
+    entry.updatedMs = now;
+    ++entry.count;
 
-        Entry &entry = m_entries.at(static_cast<int>(def->id));
-        entry.raw = raw;
-        entry.value = decoder::scale(*def, raw);
-        entry.updatedMs = now;
-        entry.valid = true;
-    }
-
-    FrameInfo &info = m_frames[frame.id];
-    info.data = frame.data;
-    info.dlc = frame.dlc;
-    info.updatedMs = now;
-    ++info.count;
+    m_recent.append(Recent{value.tag, value.value, now});
+    if (m_recent.size() > 120)
+        m_recent.remove(0, m_recent.size() - 120);
 }
 
 void VehicleState::flush()
@@ -91,24 +90,22 @@ void VehicleState::flush()
     const qint64 now = nowMs();
     QVariantMap next;
 
-    for (const SignalDef &def : canmap::allSignals()) {
-        const Entry &entry = m_entries.at(static_cast<int>(def.id));
-        if (!entry.valid)
+    for (const sig::SignalInfo &info : sig::catalog()) {
+        const auto it = m_entries.constFind(info.tag);
+        if (it == m_entries.constEnd())
             continue;
-        if (now - entry.updatedMs > def.timeoutMs)
+        if (now - it.value().updatedMs > info.timeoutMs)
             continue;
-
-        // The Max RPM row is suspect (see docs/signals.md); drop implausible
-        // values so QML falls back to its 7000 rpm shift-light reference.
-        if (def.id == SignalId::MaxRpm && (entry.value < 5000.0 || entry.value > 9000.0))
+        if (!info.key)
             continue;
-
-        next.insert(QString::fromLatin1(def.key), entry.value);
+        next.insert(QString::fromLatin1(info.key), it.value().value);
     }
 
     const auto gearIt = next.constFind(QStringLiteral("gear"));
-    if (gearIt != next.constEnd())
-        next.insert(QStringLiteral("gearLabel"), gearLabel(static_cast<int>(std::lround(gearIt.value().toDouble()))));
+    if (gearIt != next.constEnd()) {
+        const int gear = static_cast<int>(std::lround(gearIt.value().toDouble()));
+        next.insert(QStringLiteral("gearLabel"), gearLabel(gear));
+    }
 
     if (next != m_values) {
         m_values = std::move(next);
@@ -120,27 +117,27 @@ void VehicleState::updateStats()
 {
     const qint64 now = nowMs();
 
-    m_fps = static_cast<int>(std::lround(static_cast<double>(m_framesSinceTick) * 2.0));
-    m_framesSinceTick = 0;
+    m_valuesPerSecond = static_cast<int>(std::lround(static_cast<double>(m_valuesSinceTick) * 2.0));
+    m_valuesSinceTick = 0;
 
-    m_lastFrameAgeMs = m_lastFrameMs >= 0
-        ? static_cast<int>(qMin<qint64>(now - m_lastFrameMs, std::numeric_limits<int>::max()))
+    m_lastValueAgeMs = m_lastValueMs >= 0
+        ? static_cast<int>(qMin<qint64>(now - m_lastValueMs, std::numeric_limits<int>::max()))
         : -1;
 
-    m_linkAlive = m_lastFrameMs >= 0 && (now - m_lastFrameMs) < 1500;
+    m_linkAlive = m_lastValueMs >= 0 && (now - m_lastValueMs) < 1500;
 
     emit statsChanged();
 }
 
 void VehicleState::reset()
 {
-    m_entries.fill(Entry{});
-    m_frames.clear();
+    m_entries.clear();
+    m_recent.clear();
     m_values.clear();
-    m_framesSinceTick = 0;
-    m_lastFrameMs = -1;
-    m_fps = 0;
-    m_lastFrameAgeMs = -1;
+    m_valuesSinceTick = 0;
+    m_lastValueMs = -1;
+    m_valuesPerSecond = 0;
+    m_lastValueAgeMs = -1;
     m_linkAlive = false;
     emit valuesChanged();
     emit statsChanged();
@@ -148,54 +145,56 @@ void VehicleState::reset()
 
 QVariantList VehicleState::debugRows() const
 {
-    QVariantList rows;
-    const qint64 now = nowMs();
+    QVector<quint8> tags;
+    tags.reserve(sig::catalog().size() + m_entries.size());
+    for (const sig::SignalInfo &info : sig::catalog())
+        tags.append(info.tag);
+    for (auto it = m_entries.constBegin(); it != m_entries.constEnd(); ++it) {
+        if (!sig::isKnown(it.key()))
+            tags.append(it.key());
+    }
+    std::sort(tags.begin(), tags.end());
+    tags.erase(std::unique(tags.begin(), tags.end()), tags.end());
 
-    for (const SignalDef &def : canmap::allSignals()) {
-        const Entry &entry = m_entries.at(static_cast<int>(def.id));
-        const int bits = decoder::rawBits(def);
-        const quint64 mask = bits >= 64 ? ~quint64(0) : ((quint64(1) << bits) - 1);
-        const quint64 rawMasked = static_cast<quint64>(entry.raw) & mask;
+    const qint64 now = nowMs();
+    QVariantList rows;
+
+    for (quint8 tag : tags) {
+        const sig::SignalInfo info = sig::info(tag);
+        const auto it = m_entries.constFind(tag);
+        const bool present = it != m_entries.constEnd();
 
         QVariantMap row;
-        row.insert(QStringLiteral("key"), QString::fromLatin1(def.key));
-        row.insert(QStringLiteral("id"), hexId(def.canId));
-        row.insert(QStringLiteral("label"), QString::fromUtf8(def.label));
-        row.insert(QStringLiteral("unit"), QString::fromUtf8(def.unit));
-        row.insert(QStringLiteral("raw"), entry.valid ? QVariant::fromValue<qlonglong>(entry.raw) : QVariant());
-        row.insert(QStringLiteral("rawHex"), entry.valid
-                       ? QStringLiteral("0x") + QString::number(rawMasked, 16).toUpper()
-                       : QString());
-        row.insert(QStringLiteral("value"), entry.valid ? QVariant(entry.value) : QVariant());
-        row.insert(QStringLiteral("fresh"), entry.valid && (now - entry.updatedMs) <= def.timeoutMs);
-        row.insert(QStringLiteral("ageMs"), entry.valid ? static_cast<int>(now - entry.updatedMs) : -1);
-        row.insert(QStringLiteral("at"), QStringLiteral("%1%2+%3")
-                       .arg(def.bitMode ? QStringLiteral("b") : QStringLiteral("B"))
-                       .arg(def.offset)
-                       .arg(def.length));
+        row.insert(QStringLiteral("tag"), sig::hex(tag));
+        row.insert(QStringLiteral("key"), info.key ? QString::fromLatin1(info.key) : QString());
+        row.insert(QStringLiteral("label"), sig::label(tag));
+        row.insert(QStringLiteral("unit"), QString::fromUtf8(info.unit));
+        row.insert(QStringLiteral("decimals"), info.decimals);
+        row.insert(QStringLiteral("value"), present ? QVariant(it.value().value) : QVariant());
+        row.insert(QStringLiteral("ageMs"), present ? static_cast<int>(now - it.value().updatedMs) : -1);
+        row.insert(QStringLiteral("count"), present ? it.value().count : 0);
+        row.insert(QStringLiteral("fresh"), present && (now - it.value().updatedMs <= info.timeoutMs));
+        row.insert(QStringLiteral("known"), info.known);
         rows.append(row);
     }
 
     return rows;
 }
 
-QVariantList VehicleState::debugFrames() const
+QVariantList VehicleState::debugRecent() const
 {
-    QVariantList rows;
     const qint64 now = nowMs();
+    QVariantList rows;
+    rows.reserve(m_recent.size());
 
-    for (auto it = m_frames.cbegin(); it != m_frames.cend(); ++it) {
-        QStringList bytes;
-        const int count = qMin<int>(it.value().dlc, 8);
-        for (int i = 0; i < count; ++i)
-            bytes << QString::number(it.value().data.at(i), 16).toUpper().rightJustified(2, QLatin1Char('0'));
-
+    for (int i = m_recent.size() - 1; i >= 0; --i) {
+        const Recent &recent = m_recent.at(i);
         QVariantMap row;
-        row.insert(QStringLiteral("id"), hexId(it.key()));
-        row.insert(QStringLiteral("dlc"), it.value().dlc);
-        row.insert(QStringLiteral("payload"), bytes.join(QLatin1Char(' ')));
-        row.insert(QStringLiteral("ageMs"), static_cast<int>(now - it.value().updatedMs));
-        row.insert(QStringLiteral("count"), it.value().count);
+        row.insert(QStringLiteral("tag"), sig::hex(recent.tag));
+        row.insert(QStringLiteral("name"), sig::logName(recent.tag));
+        row.insert(QStringLiteral("label"), sig::label(recent.tag));
+        row.insert(QStringLiteral("value"), recent.value);
+        row.insert(QStringLiteral("ageMs"), static_cast<int>(now - recent.at));
         rows.append(row);
     }
 

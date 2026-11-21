@@ -8,7 +8,7 @@ Item {
     readonly property var v: Vehicle.values
     readonly property real maxRpm: {
         var m = page.v.maxRpm;
-        return (m !== undefined && m > 3000 && m < 9000) ? m : 7000;
+        return (m !== undefined && m > 0) ? m : 7000;
     }
     readonly property real rpm: page.v.rpm ?? 0
     readonly property real speed: page.v.speed ?? NaN
@@ -59,7 +59,7 @@ Item {
             }
 
             Text {
-                text: "BMW G29 · PT-CAN · MOCK DRIVE"
+                text: Vehicle.vehicleName + " · " + Vehicle.sourceLabel
                 color: Theme.dim
                 font.family: Theme.fontMain
                 font.pixelSize: 9
@@ -83,9 +83,9 @@ Item {
             }
 
             StatusPill {
-                title: Vehicle.linkAlive ? "MOCK DATA" : "NO DATA"
-                subtitle: Vehicle.framesPerSecond + " frames/s · "
-                          + (Vehicle.lastFrameAgeMs >= 0 ? Vehicle.lastFrameAgeMs + " ms" : "waiting")
+                title: Vehicle.linkAlive ? Vehicle.sourceLabel : "NO DATA"
+                subtitle: Vehicle.valuesPerSecond + " values/s · "
+                          + (Vehicle.lastValueAgeMs >= 0 ? Vehicle.lastValueAgeMs + " ms" : "waiting")
                 dotColor: Vehicle.linkAlive ? Theme.green : Theme.red
                 pulsing: Vehicle.linkAlive
             }
@@ -159,7 +159,6 @@ Item {
             width: parent.width
             height: 230
             title: "FUEL"
-            hint: "0x330"
 
             Text {
                 id: rangeValue
@@ -209,7 +208,7 @@ Item {
             Rectangle {
                 anchors.left: rangeTrack.left
                 anchors.top: rangeTrack.top
-                width: Math.max(0, rangeTrack.width * Theme.pct(page.v.fuelRange, 0, 256))
+                width: Math.max(0, rangeTrack.width * Theme.pct(page.v.fuelRange, 0, 600))
                 height: 6
                 radius: 3
                 color: Theme.accent
@@ -293,7 +292,6 @@ Item {
             width: parent.width
             height: 190
             title: "PEDALS"
-            hint: "0x0D9 / 0x0EF"
 
             Column {
                 anchors.fill: parent
@@ -335,7 +333,6 @@ Item {
             width: parent.width
             height: 110
             title: "TORQUE"
-            hint: "0x0A5"
 
             Text {
                 id: torqueValue
@@ -383,7 +380,6 @@ Item {
             width: parent.width
             height: 242
             title: "G-FORCE"
-            hint: "0x199 / 0x19A"
 
             GForcePad {
                 width: Math.min(parent.width, parent.height) - 16
@@ -426,7 +422,6 @@ Item {
             width: 680
             height: 200
             title: "WHEEL SPEEDS"
-            hint: "0x1A1 / 0x254"
 
             Text {
                 text: "VEHICLE"
@@ -471,7 +466,6 @@ Item {
             width: 340
             height: 200
             title: "STEERING"
-            hint: "0x301 / 0x19F"
 
             SteeringIndicator {
                 anchors.left: parent.left
@@ -507,11 +501,28 @@ Item {
             width: 332
             height: 200
             title: "LINK"
-            hint: "mock"
 
             Column {
                 anchors.fill: parent
                 spacing: 3
+
+                Text {
+                    text: "VEHICLE"
+                    color: Theme.dim
+                    font.family: Theme.fontMain
+                    font.pixelSize: 9
+                    font.bold: true
+                    font.letterSpacing: 1.4
+                }
+
+                Text {
+                    width: parent.width
+                    text: Vehicle.vehicleName
+                    color: Theme.text
+                    elide: Text.ElideRight
+                    font.family: Theme.fontMain
+                    font.pixelSize: 13
+                }
 
                 Text {
                     text: "SOURCE"
@@ -525,10 +536,10 @@ Item {
                 Text {
                     width: parent.width
                     text: Vehicle.sourceName
-                    color: Theme.text
+                    color: Theme.dim
                     elide: Text.ElideRight
                     font.family: Theme.fontMain
-                    font.pixelSize: 13
+                    font.pixelSize: 11
                 }
 
                 Text {
@@ -539,14 +550,14 @@ Item {
                 }
 
                 Text {
-                    text: "RATE    " + Vehicle.framesPerSecond + " frames/s"
+                    text: "RATE    " + Vehicle.valuesPerSecond + " values/s"
                     color: Theme.dim
                     font.family: Theme.fontMono
                     font.pixelSize: 10
                 }
 
                 Text {
-                    text: "AGE     " + (Vehicle.lastFrameAgeMs >= 0 ? Vehicle.lastFrameAgeMs + " ms" : "—")
+                    text: "AGE     " + (Vehicle.lastValueAgeMs >= 0 ? Vehicle.lastValueAgeMs + " ms" : "—")
                     color: Theme.dim
                     font.family: Theme.fontMono
                     font.pixelSize: 10

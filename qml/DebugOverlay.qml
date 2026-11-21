@@ -4,15 +4,15 @@ Item {
     id: root
 
     property bool active: false
-    property var sigRows: []
-    property var frameRows: []
+    property var tagRows: []
+    property var recentRows: []
 
     visible: active
     z: 50
 
     function refresh() {
-        sigRows = Vehicle.debugRows();
-        frameRows = Vehicle.debugFrames();
+        tagRows = Vehicle.debugRows();
+        recentRows = Vehicle.debugRecent();
     }
 
     onActiveChanged: {
@@ -43,7 +43,7 @@ Item {
         Text {
             x: 24
             y: 18
-            text: "DECODER DEBUG"
+            text: "TELEMETRY DEBUG"
             color: Theme.text
             font.family: Theme.fontMain
             font.pixelSize: 15
@@ -70,89 +70,97 @@ Item {
             anchors.topMargin: 56
 
             Item {
-                id: sigPane
-                width: Math.round(parent.width * 0.64)
+                id: tagPane
+                width: Math.round(parent.width * 0.62)
                 height: parent.height
                 anchors.left: parent.left
 
                 Row {
-                    id: sigHeader
+                    id: tagHeader
                     spacing: 6
 
-                    Text { width: 52;  text: "ID";     color: Theme.dim; font.family: Theme.fontMain; font.pixelSize: 8; font.bold: true; font.letterSpacing: 1.4 }
-                    Text { width: 220; text: "SIGNAL"; color: Theme.dim; font.family: Theme.fontMain; font.pixelSize: 8; font.bold: true; font.letterSpacing: 1.4 }
-                    Text { width: 110; text: "RAW";    color: Theme.dim; font.family: Theme.fontMain; font.pixelSize: 8; font.bold: true; font.letterSpacing: 1.4 }
+                    Text { width: 52;  text: "TAG";    color: Theme.dim; font.family: Theme.fontMain; font.pixelSize: 8; font.bold: true; font.letterSpacing: 1.4 }
+                    Text { width: 200; text: "SIGNAL"; color: Theme.dim; font.family: Theme.fontMain; font.pixelSize: 8; font.bold: true; font.letterSpacing: 1.4 }
                     Text { width: 100; text: "VALUE";  color: Theme.dim; font.family: Theme.fontMain; font.pixelSize: 8; font.bold: true; font.letterSpacing: 1.4 }
-                    Text { width: 50;  text: "UNIT";   color: Theme.dim; font.family: Theme.fontMain; font.pixelSize: 8; font.bold: true; font.letterSpacing: 1.4 }
-                    Text { width: 64;  text: "AT";     color: Theme.dim; font.family: Theme.fontMain; font.pixelSize: 8; font.bold: true; font.letterSpacing: 1.4 }
-                    Text { width: 60;  text: "AGE";    color: Theme.dim; font.family: Theme.fontMain; font.pixelSize: 8; font.bold: true; font.letterSpacing: 1.4 }
+                    Text { width: 54;  text: "UNIT";   color: Theme.dim; font.family: Theme.fontMain; font.pixelSize: 8; font.bold: true; font.letterSpacing: 1.4 }
+                    Text { width: 64;  text: "AGE";    color: Theme.dim; font.family: Theme.fontMain; font.pixelSize: 8; font.bold: true; font.letterSpacing: 1.4 }
+                    Text { width: 56;  text: "COUNT";  color: Theme.dim; font.family: Theme.fontMain; font.pixelSize: 8; font.bold: true; font.letterSpacing: 1.4 }
                 }
 
                 ListView {
-                    id: sigList
-                    anchors.top: sigHeader.bottom
+                    id: tagList
+                    anchors.top: tagHeader.bottom
                     anchors.topMargin: 8
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.bottom: parent.bottom
                     clip: true
-                    model: root.sigRows
+                    model: root.tagRows
                     spacing: 1
 
                     delegate: Row {
-                        width: sigList.width
+                        width: tagList.width
                         height: 16
                         spacing: 6
 
-                        Text { width: 52;  text: modelData.id; color: Theme.dim; font.family: Theme.fontMono; font.pixelSize: 10 }
-                        Text { width: 220; text: modelData.label; elide: Text.ElideRight; color: modelData.fresh ? Theme.text : Theme.dim; font.family: Theme.fontMain; font.pixelSize: 10 }
-                        Text { width: 110; text: modelData.rawHex; color: modelData.fresh ? Theme.text : Theme.dim; font.family: Theme.fontMono; font.pixelSize: 10 }
-                        Text { width: 100; text: Theme.fmt(modelData.value, 2); color: modelData.fresh ? Theme.text : Theme.dim; font.family: Theme.fontMono; font.pixelSize: 10 }
-                        Text { width: 50;  text: modelData.unit; color: Theme.dim; font.family: Theme.fontMono; font.pixelSize: 10 }
-                        Text { width: 64;  text: modelData.at; color: Theme.dim; font.family: Theme.fontMono; font.pixelSize: 10 }
-                        Text { width: 60;  text: modelData.ageMs < 0 ? "—" : modelData.ageMs + " ms"; color: Theme.dim; font.family: Theme.fontMono; font.pixelSize: 10 }
+                        Text { width: 52;  text: modelData.tag; color: Theme.dim; font.family: Theme.fontMono; font.pixelSize: 10 }
+                        Text { width: 200; text: modelData.label; elide: Text.ElideRight; color: modelData.fresh ? Theme.text : Theme.dim; font.family: Theme.fontMain; font.pixelSize: 10 }
+                        Text { width: 100; text: Theme.fmt(modelData.value, modelData.decimals); color: modelData.fresh ? Theme.text : Theme.dim; font.family: Theme.fontMono; font.pixelSize: 10 }
+                        Text { width: 54;  text: modelData.unit; color: Theme.dim; font.family: Theme.fontMono; font.pixelSize: 10 }
+                        Text { width: 64;  text: modelData.ageMs < 0 ? "—" : modelData.ageMs + " ms"; color: Theme.dim; font.family: Theme.fontMono; font.pixelSize: 10 }
+                        Text { width: 56;  text: modelData.count; color: Theme.dim; font.family: Theme.fontMono; font.pixelSize: 10; horizontalAlignment: Text.AlignRight }
                     }
                 }
             }
 
             Item {
-                id: framePane
-                width: Math.round(parent.width * 0.33)
+                id: recentPane
+                width: Math.round(parent.width * 0.35)
                 height: parent.height
                 anchors.right: parent.right
 
+                Text {
+                    id: recentTitle
+                    text: "RECENT VALUES"
+                    color: Theme.dim
+                    font.family: Theme.fontMain
+                    font.pixelSize: 8
+                    font.bold: true
+                    font.letterSpacing: 1.4
+                }
+
                 Row {
-                    id: frameHeader
+                    id: recentHeader
+                    anchors.top: recentTitle.bottom
+                    anchors.topMargin: 8
                     spacing: 6
 
-                    Text { width: 52;  text: "ID";      color: Theme.dim; font.family: Theme.fontMain; font.pixelSize: 8; font.bold: true; font.letterSpacing: 1.4 }
-                    Text { width: 32;  text: "DLC";     color: Theme.dim; font.family: Theme.fontMain; font.pixelSize: 8; font.bold: true; font.letterSpacing: 1.4 }
-                    Text { width: 230; text: "PAYLOAD"; color: Theme.dim; font.family: Theme.fontMain; font.pixelSize: 8; font.bold: true; font.letterSpacing: 1.4 }
-                    Text { width: 44;  text: "CNT";     color: Theme.dim; font.family: Theme.fontMain; font.pixelSize: 8; font.bold: true; font.letterSpacing: 1.4 }
-                    Text { width: 52;  text: "AGE";     color: Theme.dim; font.family: Theme.fontMain; font.pixelSize: 8; font.bold: true; font.letterSpacing: 1.4 }
+                    Text { width: 52;  text: "AGE";   color: Theme.dim; font.family: Theme.fontMain; font.pixelSize: 8; font.bold: true; font.letterSpacing: 1.4 }
+                    Text { width: 48;  text: "TAG";   color: Theme.dim; font.family: Theme.fontMain; font.pixelSize: 8; font.bold: true; font.letterSpacing: 1.4 }
+                    Text { width: 170; text: "NAME";  color: Theme.dim; font.family: Theme.fontMain; font.pixelSize: 8; font.bold: true; font.letterSpacing: 1.4 }
+                    Text { width: 90;  text: "VALUE"; color: Theme.dim; font.family: Theme.fontMain; font.pixelSize: 8; font.bold: true; font.letterSpacing: 1.4 }
                 }
 
                 ListView {
-                    id: frameList
-                    anchors.top: frameHeader.bottom
+                    id: recentList
+                    anchors.top: recentHeader.bottom
                     anchors.topMargin: 8
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.bottom: parent.bottom
                     clip: true
-                    model: root.frameRows
+                    model: root.recentRows
                     spacing: 1
 
                     delegate: Row {
-                        width: frameList.width
+                        width: recentList.width
                         height: 16
                         spacing: 6
 
-                        Text { width: 52;  text: modelData.id; color: Theme.text; font.family: Theme.fontMono; font.pixelSize: 10 }
-                        Text { width: 32;  text: modelData.dlc; color: Theme.dim; font.family: Theme.fontMono; font.pixelSize: 10 }
-                        Text { width: 230; text: modelData.payload; elide: Text.ElideRight; color: Theme.text; font.family: Theme.fontMono; font.pixelSize: 10 }
-                        Text { width: 44;  text: modelData.count; color: Theme.dim; font.family: Theme.fontMono; font.pixelSize: 10; horizontalAlignment: Text.AlignRight }
-                        Text { width: 52;  text: modelData.ageMs + " ms"; color: Theme.dim; font.family: Theme.fontMono; font.pixelSize: 10; horizontalAlignment: Text.AlignRight }
+                        Text { width: 52;  text: modelData.ageMs + " ms"; color: Theme.dim; font.family: Theme.fontMono; font.pixelSize: 10 }
+                        Text { width: 48;  text: modelData.tag; color: Theme.dim; font.family: Theme.fontMono; font.pixelSize: 10 }
+                        Text { width: 170; text: modelData.name; elide: Text.ElideRight; color: Theme.text; font.family: Theme.fontMono; font.pixelSize: 10 }
+                        Text { width: 90;  text: Theme.fmt(modelData.value, 2); color: Theme.text; font.family: Theme.fontMono; font.pixelSize: 10; horizontalAlignment: Text.AlignRight }
                     }
                 }
             }

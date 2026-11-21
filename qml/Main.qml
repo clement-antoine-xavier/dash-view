@@ -10,7 +10,7 @@ Window {
     minimumHeight: 600
     visible: true
     color: Theme.bg
-    title: "Dash View · BMW G29"
+    title: "Dash View"
 
     Item {
         id: stage
